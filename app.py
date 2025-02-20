@@ -7,10 +7,10 @@ import os
 from collections import deque
 
 app = Flask(__name__, template_folder="frontend", static_folder="frontend")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app)
 
 # Configuration
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "models/vosk-model-en-us-0.42")
+MODEL_PATH =  r"C:\Users\HP\Desktop\CaptionFlow\vosk-model-en-us-0.22"
 SAMPLE_RATE = 16000
 BUFFER_SIZE = 4096
 MAX_CAPTION_HISTORY = 200  # Keep last 200 captions
