@@ -4,31 +4,37 @@ from vosk import Model, KaldiRecognizer
 import pyaudio
 import json
 import os
+import time
 from collections import deque
+import threading
 
 app = Flask(__name__, template_folder="frontend", static_folder="frontend")
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Configuration
-MODEL_PATH =  r"C:\Users\HP\Desktop\CaptionFlow\vosk-model-en-us-0.22"
+MODEL_PATH = r"C:\Users\HP\Desktop\CaptionFlow\vosk-model-en-us-0.22"
 SAMPLE_RATE = 16000
 BUFFER_SIZE = 4096
-MAX_CAPTION_HISTORY = 200  # Keep last 200 captions
+MAX_CAPTION_HISTORY = 200
 
-# Initialize model with validation
+# Global states
+is_listening = False
+captions_log = deque(maxlen=MAX_CAPTION_HISTORY)
+
 if not os.path.exists(MODEL_PATH):
-    raise ValueError(f"Model not found at {MODEL_PATH}. Download from https://alphacephei.com/vosk/models")
+    raise ValueError(f"Model not found at {MODEL_PATH}")
 
 model = Model(MODEL_PATH)
-captions_log = deque(maxlen=MAX_CAPTION_HISTORY)
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/history')
-def caption_history():
-    return jsonify({'captions': list(captions_log)})
+@app.route('/toggle_mic', methods=['POST'])
+def toggle_mic():
+    global is_listening
+    is_listening = not is_listening
+    return jsonify({'listening': is_listening})
 
 def audio_stream_thread():
     recognizer = KaldiRecognizer(model, SAMPLE_RATE)
@@ -45,16 +51,18 @@ def audio_stream_thread():
         )
 
         stream.start_stream()
-        socketio.emit('status', {'status': 'listening'})
 
         while True:
-            data = stream.read(BUFFER_SIZE, exception_on_overflow=False)
-            if recognizer.AcceptWaveform(data):
-                result = json.loads(recognizer.Result())
-                text = result.get('text', '').strip()
-                if text:
-                    captions_log.append(text)
-                    socketio.emit('caption', {'text': text, 'timestamp': time.time()})
+            if is_listening:
+                data = stream.read(BUFFER_SIZE, exception_on_overflow=False)
+                if recognizer.AcceptWaveform(data):
+                    result = json.loads(recognizer.Result())
+                    text = result.get('text', '').strip()
+                    if text:
+                        captions_log.append(text)
+                        socketio.emit('caption', {'text': text})
+            else:
+                time.sleep(0.1)
 
     except Exception as e:
         socketio.emit('error', {'message': str(e)})
@@ -63,10 +71,6 @@ def audio_stream_thread():
         stream.close()
         mic.terminate()
 
-@socketio.on('connect')
-def handle_connect():
-    socketio.emit('status', {'status': 'connected'})
-
 if __name__ == '__main__':
-    socketio.start_background_task(audio_stream_thread)
+    threading.Thread(target=audio_stream_thread, daemon=True).start()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)
