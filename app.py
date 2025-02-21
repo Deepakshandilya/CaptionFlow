@@ -5,26 +5,24 @@ import pyaudio
 import json
 import os
 import time
+from threading import Thread
 from collections import deque
-import threading
 
 app = Flask(__name__, template_folder="frontend", static_folder="frontend")
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Configuration
 MODEL_PATH = r"C:\Users\HP\Desktop\CaptionFlow\vosk-model-en-us-0.22"
 SAMPLE_RATE = 16000
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 4000
 MAX_CAPTION_HISTORY = 200
-
-# Global states
-is_listening = False
-captions_log = deque(maxlen=MAX_CAPTION_HISTORY)
 
 if not os.path.exists(MODEL_PATH):
     raise ValueError(f"Model not found at {MODEL_PATH}")
 
 model = Model(MODEL_PATH)
+
+is_listening = False
+captions_log = deque(maxlen=MAX_CAPTION_HISTORY)
 
 @app.route('/')
 def index():
@@ -34,23 +32,25 @@ def index():
 def toggle_mic():
     global is_listening
     is_listening = not is_listening
+    if is_listening:
+        print("Mic turned ON")
+    else:
+        print("Mic turned OFF")
     return jsonify({'listening': is_listening})
 
-def audio_stream_thread():
+def audio_stream():
+    global is_listening
     recognizer = KaldiRecognizer(model, SAMPLE_RATE)
-    mic = pyaudio.PyAudio()
-    
+    p = pyaudio.PyAudio()
+
     try:
-        stream = mic.open(
+        stream = p.open(
             format=pyaudio.paInt16,
             channels=1,
             rate=SAMPLE_RATE,
             input=True,
-            frames_per_buffer=BUFFER_SIZE,
-            input_device_index=mic.get_default_input_device_info()['index']
+            frames_per_buffer=BUFFER_SIZE
         )
-
-        stream.start_stream()
 
         while True:
             if is_listening:
@@ -61,16 +61,19 @@ def audio_stream_thread():
                     if text:
                         captions_log.append(text)
                         socketio.emit('caption', {'text': text})
+                        print(f"Caption: {text}")
             else:
                 time.sleep(0.1)
 
     except Exception as e:
+        print(f"Audio Stream Error: {e}")
         socketio.emit('error', {'message': str(e)})
+
     finally:
         stream.stop_stream()
         stream.close()
-        mic.terminate()
+        p.terminate()
 
 if __name__ == '__main__':
-    threading.Thread(target=audio_stream_thread, daemon=True).start()
+    Thread(target=audio_stream, daemon=True).start()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)

@@ -10,17 +10,15 @@
 <body class="bg-gray-900 min-h-screen">
     <div class="container mx-auto px-4 py-8">
         <div class="max-w-4xl mx-auto">
-            <div class="text-center mb-12">
+            <div class="text-center mb-8">
                 <h1 class="text-4xl font-bold text-emerald-500 mb-2">CaptionFlow</h1>
                 <p class="text-gray-400">Real-time voice recognition captions</p>
                 <div class="mt-6">
                     <button id="micButton" class="p-4 rounded-full bg-emerald-500 hover:bg-emerald-600 transition-colors">
-                        <svg id="micIcon" class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0-4H3m15 0h3m-3-7a7 7 0 00-7-7m0 0a7 7 0 00-7 7m7-7v10"></path>
-                        </svg>
+                        <span id="micButtonText" class="text-white text-lg">Start Listening</span>
                     </button>
                 </div>
-                <div id="status" class="text-sm text-gray-500 mt-2">Click mic to start</div>
+                <div id="status" class="text-sm text-gray-500 mt-2">Click the button to start captions</div>
             </div>
 
             <div class="bg-gray-800 rounded-lg shadow-xl p-6">
@@ -28,9 +26,9 @@
                     <div class="h-3 w-3 bg-emerald-500 rounded-full mr-2 pulse"></div>
                     <span class="text-gray-400 text-sm">Live Captions</span>
                 </div>
-                
-                <div id="captionContainer" class="h-96 overflow-y-auto space-y-3 flex flex-col-reverse">
-                    <div class="text-gray-400 text-center py-4">Captions will appear here...</div>
+
+                <div id="captionContainer" class="h-96 overflow-y-auto space-y-2 flex flex-col-reverse">
+                    <div class="text-gray-500 italic">Captions will appear here...</div>
                 </div>
             </div>
         </div>
@@ -51,10 +49,6 @@
             width: 6px;
         }
 
-        #captionContainer::-webkit-scrollbar-track {
-            background: rgba(255,255,255,0.1);
-        }
-
         #captionContainer::-webkit-scrollbar-thumb {
             background: #10B981;
             border-radius: 3px;
@@ -64,7 +58,10 @@
     <script>
         const socket = io();
         const micButton = document.getElementById('micButton');
+        const micButtonText = document.getElementById('micButtonText');
         const statusElement = document.getElementById('status');
+        const captionContainer = document.getElementById('captionContainer');
+
         let isListening = false;
 
         micButton.addEventListener('click', async () => {
@@ -73,35 +70,35 @@
                 const data = await response.json();
                 isListening = data.listening;
                 updateUI();
-            } catch (err) {
-                console.error('Mic toggle failed:', err);
+            } catch (error) {
+                console.error('Failed to toggle mic:', error);
             }
         });
 
         socket.on('caption', (data) => {
-            const caption = document.createElement('div');
-            caption.className = 'bg-gray-700 p-3 rounded-lg flex justify-between items-center';
-            caption.innerHTML = `
-                <span class="text-gray-100">${data.text}</span>
-                <button class="text-gray-400 hover:text-white px-2 py-1 rounded copy-btn">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                    </svg>
-                </button>
-            `;
-            
-            caption.querySelector('.copy-btn').addEventListener('click', () => {
-                navigator.clipboard.writeText(data.text);
-            });
+            console.log('Caption received:', data.text);
 
-            document.getElementById('captionContainer').prepend(caption);
+            const captionElement = document.createElement('div');
+            captionElement.className = 'bg-gray-700 p-3 rounded text-white';
+            captionElement.textContent = data.text;
+
+            // Insert new caption at the bottom
+            captionContainer.appendChild(captionElement);
+
+            // Auto-scroll to bottom (for normal caption order)
+            captionContainer.scrollTop = captionContainer.scrollHeight;
         });
 
         function updateUI() {
+            micButtonText.textContent = isListening ? 'Stop Listening' : 'Start Listening';
             micButton.style.backgroundColor = isListening ? '#EF4444' : '#10B981';
             statusElement.textContent = isListening ? 'Listening...' : 'Ready';
             statusElement.style.color = isListening ? '#10B981' : '#6B7280';
         }
+
+        socket.on('connect', () => console.log('Connected to WebSocket'));
+        socket.on('disconnect', () => console.log('Disconnected from WebSocket'));
+        socket.on('error', (data) => console.error('Error:', data.message));
     </script>
 </body>
 </html>
