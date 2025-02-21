@@ -48,7 +48,7 @@ pip install -r requirements.txt
 ```
 
 ### 5. Download Vosk Model
-Download the Vosk model from [https://alphacephei.com/vosk/models](https://alphacephei.com/vosk/models) and extract it to the `models/` folder. Example structure:
+Download the Vosk model from [https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip](https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip) and extract it to the `models/` folder. Example structure:
 ```
 models/
     vosk-model-en-us-0.42/
