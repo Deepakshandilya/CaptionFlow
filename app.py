@@ -11,7 +11,7 @@ from collections import deque
 app = Flask(__name__, template_folder="frontend", static_folder="frontend")
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-MODEL_PATH = r"C:\Users\HP\Desktop\CaptionFlow\vosk-model-en-us-0.22"
+MODEL_PATH = r"vosk-model-en-us-0.22"
 SAMPLE_RATE = 16000
 BUFFER_SIZE = 4000
 MAX_CAPTION_HISTORY = 200
